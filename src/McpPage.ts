@@ -77,7 +77,7 @@ import {
   type Page,
   type ConsoleMessage,
   type HTTPRequest,
-  type DevTools,
+  DevTools,
   type JSONSchema7Definition,
 } from './third_party/index.js';
 import {takeSnapshot} from './tools/snapshot.js';
@@ -87,6 +87,7 @@ const NAVIGATION_TIMEOUT = 10_000;
 import type {
   ContextPage,
   DevToolsData,
+  MatchedStyles,
   Response,
 } from './tools/ToolDefinition.js';
 import type {
@@ -101,6 +102,12 @@ import {
   type WaitForEventsResult,
   type DialogAction,
 } from './utils/WaitForHelper.js';
+
+function isBackendNodeId(
+  id: number,
+): id is DevTools.Protocol.DOM.BackendNodeId {
+  return typeof id === 'number';
+}
 
 /**
  * Per-page state wrapper. Consolidates dialog, snapshot, emulation,
@@ -125,6 +132,7 @@ export class McpPage implements ContextPage {
   // Metadata
   isolatedContextName?: string;
   #devtoolsUniverse?: TargetUniverse;
+  #initDevToolsPromise?: Promise<TargetUniverse>;
 
   // Dialog
   #dialog?: Dialog;
@@ -190,13 +198,29 @@ export class McpPage implements ContextPage {
     });
   }
 
-  async #initDevToolsUniverseNoThrow(): Promise<void> {
+  async ensureDevToolsUniverse(): Promise<TargetUniverse> {
     if (this.#devtoolsUniverse) {
-      return undefined;
+      return this.#devtoolsUniverse;
     }
-    try {
+    if (this.#initDevToolsPromise) {
+      return await this.#initDevToolsPromise;
+    }
+    this.#initDevToolsPromise = (async () => {
       const session = await this.pptrPage.createCDPSession();
-      this.#devtoolsUniverse = await createTargetUniverse(session);
+      const universe = await createTargetUniverse(session);
+      this.#devtoolsUniverse = universe;
+      return universe;
+    })();
+    try {
+      return await this.#initDevToolsPromise;
+    } finally {
+      this.#initDevToolsPromise = undefined;
+    }
+  }
+
+  async #initDevToolsUniverseNoThrow(): Promise<void> {
+    try {
+      await this.ensureDevToolsUniverse();
     } catch (e) {
       logger?.('Failed to initialize DevTools universe', e);
     }
@@ -669,6 +693,63 @@ export class McpPage implements ContextPage {
 
   getAXNodeByUid(uid: string) {
     return this.textSnapshot?.idToNode.get(uid);
+  }
+
+  async getMatchedStylesForUid(uid: string): Promise<MatchedStyles> {
+    if (!this.textSnapshot) {
+      throw new Error(
+        `No snapshot found for page ${this.id ?? '?'}. Use ${takeSnapshot.name} to capture one.`,
+      );
+    }
+    const node = this.textSnapshot.idToNode.get(uid);
+    if (!node) {
+      throw new Error(`Element uid "${uid}" not found on page ${this.id}.`);
+    }
+
+    let backendNodeId = node.backendNodeId;
+    if (!backendNodeId) {
+      using handle = await this.#resolveElementHandle(node, uid);
+      backendNodeId = await handle.backendNodeId();
+    }
+    if (!backendNodeId || !isBackendNodeId(backendNodeId)) {
+      throw new Error(
+        `Failed to resolve backend node ID for element with uid "${uid}".`,
+      );
+    }
+
+    const devtools = await this.ensureDevToolsUniverse();
+    const domModel = devtools.target.model(DevTools.DOMModel.DOMModel);
+    const cssModel = devtools.target.model(DevTools.CSSModel.CSSModel);
+    if (!domModel || !cssModel) {
+      throw new Error('DevTools DOMModel or CSSModel is not available.');
+    }
+
+    await domModel.requestDocument();
+    const nodeMap = await domModel.pushNodesByBackendIdsToFrontend(
+      new Set([backendNodeId]),
+    );
+    const domNode = nodeMap?.get(backendNodeId);
+    if (!domNode) {
+      throw new Error(
+        `Element with uid "${uid}" was detached or no longer exists on the page. Please take a new snapshot with ${takeSnapshot.name}.`,
+      );
+    }
+
+    const targetElement = domNode.enclosingElementOrSelf();
+    if (!targetElement) {
+      throw new Error(
+        `Element with uid "${uid}" is not an element node and has no parent element.`,
+      );
+    }
+
+    const matchedStyles = await cssModel.getMatchedStyles(targetElement.id);
+    if (!matchedStyles) {
+      throw new Error(
+        `Could not retrieve matched styles for element with uid "${uid}".`,
+      );
+    }
+
+    return matchedStyles;
   }
 
   async getDevToolsData(): Promise<DevToolsData> {

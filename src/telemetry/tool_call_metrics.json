@@ -1048,5 +1048,9 @@
         "argType": "number"
       }
     ]
+  },
+  {
+    "name": "get_css_styles",
+    "args": []
   }
 ]

@@ -350,6 +350,20 @@ export const commands: Commands = {
       },
     },
   },
+  get_css_styles: {
+    description:
+      'Retrieve matched CSS rules, inline styles, inherited styles, and cascade information for an element identified by its UID.\nUse this tool to debug why specific CSS properties are applied, overridden, or conflicting. Requires a UID from take_snapshot.',
+    category: 'Debugging',
+    args: {
+      uid: {
+        name: 'uid',
+        type: 'string',
+        description:
+          'The uid of the element on the page from the page content snapshot to inspect CSS styles for',
+        required: true,
+      },
+    },
+  },
   get_heapsnapshot_class_nodes: {
     description:
       'Loads a memory heapsnapshot and returns instances of a specific class with their IDs. (requires flag: --memoryDebugging=true)',

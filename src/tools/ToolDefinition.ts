@@ -322,6 +322,10 @@ export type Context = Readonly<{
   ): Promise<DevTools.HeapSnapshotModel.HeapSnapshotModel.ItemsRange>;
 }>;
 
+export type MatchedStyles = NonNullable<
+  Awaited<ReturnType<DevTools.CSSModel.CSSModel['getMatchedStyles']>>
+>;
+
 /**
  * Only add methods used by tools/*.
  */
@@ -331,6 +335,7 @@ export type ContextPage = Readonly<{
   readonly networkConditions: string | null;
   getAXNodeByUid(uid: string): TextSnapshotNode | undefined;
   getElementByUid(uid: string): Promise<ElementHandle<Element>>;
+  getMatchedStylesForUid(uid: string): Promise<MatchedStyles>;
 
   /**
    * Returns a reqid for a cdpRequestId.

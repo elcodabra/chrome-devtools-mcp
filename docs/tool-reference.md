@@ -30,9 +30,10 @@
 - **[Network](#network)** (2 tools)
   - [`get_network_request`](#get_network_request)
   - [`list_network_requests`](#list_network_requests)
-- **[Debugging](#debugging)** (8 tools)
+- **[Debugging](#debugging)** (9 tools)
   - [`evaluate_script`](#evaluate_script)
   - [`get_console_message`](#get_console_message)
+  - [`get_css_styles`](#get_css_styles)
   - [`lighthouse_audit`](#lighthouse_audit)
   - [`list_console_messages`](#list_console_messages)
   - [`take_screenshot`](#take_screenshot)
@@ -376,6 +377,17 @@
 **Parameters:**
 
 - **msgid** (number) **(required)**: The msgid of a console message on the page from the listed console messages
+
+---
+
+### `get_css_styles`
+
+**Description:** Retrieve matched CSS rules, inline styles, inherited styles, and cascade information for an element identified by its UID.
+Use this tool to debug why specific CSS properties are applied, overridden, or conflicting. Requires a UID from [`take_snapshot`](#take_snapshot).
+
+**Parameters:**
+
+- **uid** (string) **(required)**: The uid of the element on the page from the page content snapshot to inspect CSS styles for
 
 ---
 
