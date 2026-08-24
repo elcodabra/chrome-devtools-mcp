@@ -160,7 +160,9 @@ function updateConfigurationWithOptionsMarkdown(optionsMarkdown: string): void {
   const endIndex = readmeContent.indexOf(endMarker);
 
   if (beginIndex === -1 || endIndex === -1) {
-    console.warn('Could not find auto-generated options markers in ./docs/configuration.md');
+    console.warn(
+      'Could not find auto-generated options markers in ./docs/configuration.md',
+    );
     return;
   }
 
